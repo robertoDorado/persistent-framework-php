@@ -102,20 +102,18 @@ class Conn
 
         $clausule = '';
         $and = '';
-
+        
         if (count($data) >= 2) {
             $and .= "AND";
         }
 
         foreach ($data as $key => $value) {
 
-            if (!preg_match("/(=|=>|<=|LIKE|like|>|<|OR|or|BETWEEN|between|in|IN|NOT IN|not in)/", $key)) {
-                throw new \Exception('clausula where invalida');
-            }
-
             if (preg_match("/^\d+$/", $value)) {
                 $value = preg_replace("/''/", '', $value);
-            } else {
+            } elseif (preg_match("/()/", $value)) {
+                $value = preg_replace("/''/", '', $value);
+            }else {
                 $value = "'{$value}'";
             }
 
