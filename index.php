@@ -22,6 +22,8 @@ class Conn
 
     private $fields;
 
+    private $values;
+
     /**
      * Connection constructor
      */
@@ -37,7 +39,12 @@ class Conn
         $this->dbname = preg_replace("/dbname=/", '', $this->dbname);
     }
 
-    public function where($data)
+    public function debug()
+    {
+        return $this->query;
+    }
+
+    public function fetch($reference = 'all', $array = false)
     {
         if (empty($this->dbname)) {
             throw new \Exception('banco não pode estar vazio');
@@ -51,30 +58,73 @@ class Conn
             throw new \Exception('os campos não podem estar vazio');
         }
 
+        try {
+            $pdo = $this->connection()->prepare($this->query);
+
+            if (!empty($this->values)) {
+                foreach ($this->values as $value) {
+                    $pdo->bindValue(":{$value}", $value);
+                }
+            }
+
+            $pdo->execute();
+
+            if ($pdo->rowCount() == 0) {
+                throw new \Exception('a query não retornou nenhum resultado');
+            }
+
+            if ($reference == 'first' && !$array) {
+                return $pdo->fetch(PDO::FETCH_OBJ);
+            } elseif ($reference == 'first' && $array) {
+                return $pdo->fetch(PDO::FETCH_ASSOC);
+            } elseif ($reference == 'all' && $array) {
+                return $pdo->fetchAll(PDO::FETCH_ASSOC);
+            } elseif ($reference == 'all' && !$array) {
+                return $pdo->fetchAll(PDO::FETCH_OBJ);
+            } else {
+                throw new \Exception('a referencia ou a validação de array e objeto pode estar incorreto');
+            }
+
+        } catch (PDOException $e) {
+            return $e->getMessage();
+        }
+    }
+
+    public function where($data)
+    {
+        if (empty($this->dbname)) {
+            throw new \Exception('banco não pode estar vazio');
+        }
+
+        if (empty($this->table)) {
+            throw new \Exception('tabela não pode estar vazio');
+        }
+
         $clausule = '';
         $and = '';
-        
+
         if (count($data) >= 2) {
             $and .= "AND";
         }
-        
+
         foreach ($data as $key => $value) {
 
-            if (!preg_match("/=/", $key)) {
+            if (!preg_match("/(=|=>|<=|LIKE|like|>|<|OR|or|BETWEEN|between|in|IN|NOT IN|not in)/", $key)) {
                 throw new \Exception('clausula where invalida');
             }
 
             if (preg_match("/^\d+$/", $value)) {
                 $value = preg_replace("/''/", '', $value);
-            }else {
+            } else {
                 $value = "'{$value}'";
             }
 
+            $this->values[] = $value;
             $clausule .= "{$this->dbname}.{$this->table}.{$key} {$value} {$and} ";
         }
 
         $clausule = preg_replace("/AND\s$/", '', $clausule);
-        
+
         $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table} WHERE {$clausule}";
         return $this;
     }
@@ -98,7 +148,7 @@ class Conn
         if (empty($data)) {
             $fields = "{$this->dbname}.{$this->table}.*";
         } else {
-            $data = array_map(function($item) {
+            $data = array_map(function ($item) {
                 return "{$this->dbname}.{$this->table}.{$item}";
             }, $data);
 
@@ -119,6 +169,10 @@ class Conn
      */
     public function connection()
     {
-        return new \PDO($this->dsn, $this->username, $this->password);
+        try {
+            return new \PDO($this->dsn, $this->username, $this->password);
+        } catch (PDOException $e) {
+            return $e->getMessage();
+        }
     }
 }
