@@ -24,6 +24,8 @@ class Conn
 
     private $values;
 
+    private $where;
+
     /**
      * Connection constructor
      */
@@ -37,6 +39,40 @@ class Conn
             $this->dbname = $database[0];
         }
         $this->dbname = preg_replace("/dbname=/", '', $this->dbname);
+    }
+
+    public function count($alias = '', $obj = false, $debug = false)
+    {
+        if (empty($this->dbname)) {
+            throw new \Exception('banco não pode estar vazio');
+        }
+
+        if (empty($this->table)) {
+            throw new \Exception('tabela não pode estar vazio');
+        }
+
+        $this->query = "SELECT COUNT({$this->dbname}.{$this->table}.id) {$alias} FROM {$this->dbname}.{$this->table} {$this->where}";
+
+        if ($debug) {
+            return $this->query;
+        }
+        
+        try {
+            $pdo = $this->connection()->prepare($this->query);
+            $pdo->execute();
+
+            if ($pdo->rowCount() == 0) {
+                throw new \Exception('não retornou resultados');
+            }
+
+            if ($obj) {
+                return $pdo->fetch(PDO::FETCH_OBJ);
+            }else {
+                return $pdo->fetch(PDO::FETCH_ASSOC);
+            }
+        }catch(PDOException $e) {
+            return $e->getMessage();
+        }
     }
 
     public function debug()
@@ -122,8 +158,9 @@ class Conn
         }
 
         $clausule = preg_replace("/AND\s$/", '', $clausule);
+        $this->where = "WHERE " . $clausule;
 
-        $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table} WHERE {$clausule}";
+        $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table} {$this->where}";
         return $this;
     }
 
