@@ -28,6 +28,8 @@ class Conn
 
     private $group_by;
 
+    private $inner_join;
+
     /**
      * Connection constructor
      */
@@ -43,23 +45,43 @@ class Conn
         $this->dbname = preg_replace("/dbname=/", '', $this->dbname);
     }
 
-    public function groupBy(string $column_name, string $data = 'all', bool $obj = false, bool $debug = false)
+    public function join(string $table_join, string $column_join, string $operator, string $table, string $column)
     {
         if (empty($this->dbname)) {
-            throw new \Exception('banco não pode estar vazio');
+            throw new \Exception('precisa declarar o banco de dados');
         }
 
         if (empty($this->table)) {
-            throw new \Exception('tabela não pode estar vazio');
+            throw new \Exception('precisa declarar o nome da tabela');
         }
 
-        $this->group_by = "{$this->dbname}.{$this->table}.{$column_name}";
+        $this->inner_join = "INNER JOIN {$this->dbname}.{$table_join} ON
+        ({$this->dbname}.{$table_join}.{$column_join} {$operator} {$this->dbname}.{$table}.{$column})
+        {$this->inner_join}";
+
+        $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table} {$this->where} {$this->inner_join}";
+        return $this;
+    }
+
+    public function groupBy(string $column_name, string $data = 'all', bool $obj = false, bool $debug = false)
+    {
+        if (empty($this->dbname)) {
+            throw new \Exception('precisa declarar o banco de dados');
+        }
+
+        if (empty($this->table)) {
+            throw new \Exception('precisa declarar o nome da tabela');
+        }
+
+        $this->group_by = "{$column_name}";
 
         if (empty($this->fields)) {
-            $this->query = "SELECT * FROM {$this->dbname}.{$this->table} {$this->where} 
+            $this->query = "SELECT * FROM {$this->dbname}.{$this->table} 
+            {$this->inner_join} {$this->where} 
             GROUP BY {$this->group_by}";
         }else {
-            $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table} {$this->where} 
+            $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table} 
+            {$this->inner_join} {$this->where} 
             GROUP BY {$this->group_by}";
         }
 
@@ -93,14 +115,14 @@ class Conn
     public function count(string $alias = '', bool $obj = false, bool $debug = false)
     {
         if (empty($this->dbname)) {
-            throw new \Exception('banco não pode estar vazio');
+            throw new \Exception('precisa declarar o banco de dados');
         }
 
         if (empty($this->table)) {
-            throw new \Exception('tabela não pode estar vazio');
+            throw new \Exception('precisa declarar o nome da tabela');
         }
 
-        $this->query = "SELECT COUNT({$this->dbname}.{$this->table}.id) {$alias} FROM {$this->dbname}.{$this->table} {$this->where}";
+        $this->query = "SELECT COUNT({$this->dbname}.{$this->table}.id) {$alias} FROM {$this->dbname}.{$this->table} {$this->inner_join} {$this->where}";
 
         if ($debug) {
             return $this->query;
@@ -132,11 +154,11 @@ class Conn
     public function fetch($reference = 'all', $array = false)
     {
         if (empty($this->dbname)) {
-            throw new \Exception('banco não pode estar vazio');
+            throw new \Exception('precisa declarar o banco de dados');
         }
 
         if (empty($this->table)) {
-            throw new \Exception('tabela não pode estar vazio');
+            throw new \Exception('precisa declarar o nome da tabela');
         }
 
         if (empty($this->fields)) {
@@ -174,14 +196,14 @@ class Conn
         }
     }
 
-    public function where($data)
+    public function where(array $data)
     {
         if (empty($this->dbname)) {
-            throw new \Exception('banco não pode estar vazio');
+            throw new \Exception('precisa declarar o banco de dados');
         }
 
         if (empty($this->table)) {
-            throw new \Exception('tabela não pode estar vazio');
+            throw new \Exception('precisa declarar o nome da tabela');
         }
 
         $clausule = '';
@@ -202,13 +224,14 @@ class Conn
             }
 
             $this->values[] = $value;
-            $clausule .= "{$this->dbname}.{$this->table}.{$key} {$value} {$and} ";
+            $clausule .= "{$key} {$value} {$and} ";
         }
 
         $clausule = preg_replace("/AND\s$/", '', $clausule);
         $this->where = "WHERE " . $clausule;
 
-        $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table} {$this->where}";
+        $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table}
+        {$this->inner_join} {$this->where}";
         return $this;
     }
 
@@ -229,12 +252,8 @@ class Conn
         }
 
         if (empty($data)) {
-            $fields = "{$this->dbname}.{$this->table}.*";
+            $fields = "*";
         } else {
-            $data = array_map(function ($item) {
-                return "{$this->dbname}.{$this->table}.{$item}";
-            }, $data);
-
             $fields = implode(', ', $data);
         }
 
