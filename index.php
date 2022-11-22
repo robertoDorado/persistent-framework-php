@@ -26,6 +26,8 @@ class Conn
 
     private $where;
 
+    private $group_by;
+
     /**
      * Connection constructor
      */
@@ -41,7 +43,54 @@ class Conn
         $this->dbname = preg_replace("/dbname=/", '', $this->dbname);
     }
 
-    public function count($alias = '', $obj = false, $debug = false)
+    public function groupBy(string $column_name, string $data = 'all', bool $obj = false, bool $debug = false)
+    {
+        if (empty($this->dbname)) {
+            throw new \Exception('banco não pode estar vazio');
+        }
+
+        if (empty($this->table)) {
+            throw new \Exception('tabela não pode estar vazio');
+        }
+
+        $this->group_by = "{$this->dbname}.{$this->table}.{$column_name}";
+
+        if (empty($this->fields)) {
+            $this->query = "SELECT * FROM {$this->dbname}.{$this->table} {$this->where} 
+            GROUP BY {$this->group_by}";
+        }else {
+            $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table} {$this->where} 
+            GROUP BY {$this->group_by}";
+        }
+
+        if ($debug) {
+            return $this->query;
+        }
+
+        try {
+            $pdo = $this->connection()->prepare($this->query);
+            $pdo->execute();
+
+            if ($pdo->rowCount() == 0) {
+                throw new \Exception('não retornou resultados');
+            }
+
+            if ($obj && $data == 'first') {
+                return $pdo->fetch(PDO::FETCH_OBJ);
+            } elseif ($obj && $data == 'all') {
+                return $pdo->fetchAll(PDO::FETCH_OBJ);
+            } elseif (!$obj && $data == 'first') {
+                return $pdo->fetch(PDO::FETCH_ASSOC);
+            } elseif (!$obj && $data == 'all') {
+                return $pdo->fetchAll(PDO::FETCH_ASSOC);
+            }
+
+        } catch (PDOException $e) {
+            return $e->getMessage();
+        }
+    }
+
+    public function count(string $alias = '', bool $obj = false, bool $debug = false)
     {
         if (empty($this->dbname)) {
             throw new \Exception('banco não pode estar vazio');
@@ -56,7 +105,7 @@ class Conn
         if ($debug) {
             return $this->query;
         }
-        
+
         try {
             $pdo = $this->connection()->prepare($this->query);
             $pdo->execute();
@@ -67,10 +116,10 @@ class Conn
 
             if ($obj) {
                 return $pdo->fetch(PDO::FETCH_OBJ);
-            }else {
+            } else {
                 return $pdo->fetch(PDO::FETCH_ASSOC);
             }
-        }catch(PDOException $e) {
+        } catch (PDOException $e) {
             return $e->getMessage();
         }
     }
@@ -120,7 +169,6 @@ class Conn
             } else {
                 throw new \Exception('a referencia ou a validação de array e objeto pode estar incorreto');
             }
-
         } catch (PDOException $e) {
             return $e->getMessage();
         }
@@ -138,7 +186,7 @@ class Conn
 
         $clausule = '';
         $and = '';
-        
+
         if (count($data) >= 2) {
             $and .= "AND";
         }
@@ -149,7 +197,7 @@ class Conn
                 $value = preg_replace("/''/", '', $value);
             } elseif (preg_match("/()/", $value)) {
                 $value = preg_replace("/''/", '', $value);
-            }else {
+            } else {
                 $value = "'{$value}'";
             }
 
