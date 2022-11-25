@@ -45,6 +45,42 @@ class Conn
         $this->dbname = preg_replace("/dbname=/", '', $this->dbname);
     }
 
+    public function rightJoin(string $table_join, string $column_join, string $operator, string $table, string $column)
+    {
+        if (empty($this->dbname)) {
+            throw new \Exception('precisa declarar o banco de dados');
+        }
+
+        if (empty($this->table)) {
+            throw new \Exception('precisa declarar o nome da tabela');
+        }
+
+        $this->inner_join = "RIGHT JOIN {$this->dbname}.{$table_join} ON
+        ({$this->dbname}.{$table_join}.{$column_join} {$operator} {$this->dbname}.{$table}.{$column})
+        {$this->inner_join}";
+
+        $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table} {$this->where} {$this->inner_join}";
+        return $this;
+    }
+
+    public function leftJoin(string $table_join, string $column_join, string $operator, string $table, string $column)
+    {
+        if (empty($this->dbname)) {
+            throw new \Exception('precisa declarar o banco de dados');
+        }
+
+        if (empty($this->table)) {
+            throw new \Exception('precisa declarar o nome da tabela');
+        }
+
+        $this->inner_join = "LEFT JOIN {$this->dbname}.{$table_join} ON
+        ({$this->dbname}.{$table_join}.{$column_join} {$operator} {$this->dbname}.{$table}.{$column})
+        {$this->inner_join}";
+
+        $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table} {$this->where} {$this->inner_join}";
+        return $this;
+    }
+
     public function join(string $table_join, string $column_join, string $operator, string $table, string $column)
     {
         if (empty($this->dbname)) {
@@ -262,13 +298,7 @@ class Conn
         $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table}";
         return $this;
     }
-
-
-    /**
-     * conexão
-     *
-     * @return mixed
-     */
+    
     public function connection()
     {
         try {
