@@ -45,6 +45,32 @@ class Conn
         $this->dbname = preg_replace("/dbname=/", '', $this->dbname);
     }
 
+    public function findById($id, $array = false)
+    {
+        if (empty($this->dbname)) {
+            throw new \Exception('precisa declarar o banco de dados');
+        }
+
+        if (empty($this->table)) {
+            throw new \Exception('precisa declarar o nome da tabela');
+        }
+
+        $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table} WHERE id = :id";
+        $pdo = $this->connection()->prepare($this->query);
+        $pdo->bindValue(":id", $id);
+        $pdo->execute();
+
+        if ($pdo->rowCount() == 0) {
+            throw new \Exception('não existem registros com esse id');
+        }
+
+        if ($array) {
+            return $pdo->fetch(PDO::FETCH_ASSOC);
+        } else {
+            return $pdo->fetch(PDO::FETCH_OBJ);
+        }
+    }
+
     public function rightJoin(string $table_join, string $column_join, string $operator, string $table, string $column)
     {
         if (empty($this->dbname)) {
@@ -298,7 +324,7 @@ class Conn
         $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table}";
         return $this;
     }
-    
+
     public function connection()
     {
         try {
