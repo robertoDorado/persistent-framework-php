@@ -64,10 +64,40 @@ class Conn
             throw new \Exception('os dados para inserir estão vazios');
         }
 
+        
         $keys = array_keys($this->data);
+
         $binders = array_map(function ($item) {
             return ":{$item}";
         }, $keys);
+
+        if (in_array("id", $keys)) {
+            $params = '';
+            foreach ($binders as $key => $value) {
+                $key_param = preg_replace("/:{1}/", '', $value);
+                if ($key_param != "id") {
+                    $params .= "{$key_param} = {$value}, ";
+                }
+            }
+
+            $params = preg_replace("/\,+\s$/", '', $params);
+
+            $this->query = "UPDATE {$this->dbname}.{$this->table} SET {$params} WHERE id = :id";
+            try {
+                $pdo = $this->connection()->prepare($this->query);
+                foreach ($this->data as $key => $value) {
+                    $pdo->bindValue(":{$key}", $value);
+                }
+    
+                if ($pdo->execute()) {
+                    return true;
+                } else {
+                    return false;
+                }
+            } catch (\PDOException $e) {
+                return $e->getMessage();
+            }
+        }
 
         $this->query = "INSERT INTO {$this->dbname}.{$this->table}
         (" . implode(", ", $keys) . ")
