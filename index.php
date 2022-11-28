@@ -30,19 +30,68 @@ class Conn
 
     private $inner_join;
 
+    private $data;
+
+    private $options;
+
     /**
      * Connection constructor
      */
-    public function __construct($dsn, $username, $password)
+    public function __construct($dsn, $username, $password, $options)
     {
         $this->dsn = $dsn;
         $this->username = $username;
         $this->password = $password;
+        $this->options = $options;
 
         if (preg_match("/dbname=[a-zA-Z0-9\-\.\_]+/", $this->dsn, $database)) {
             $this->dbname = $database[0];
         }
         $this->dbname = preg_replace("/dbname=/", '', $this->dbname);
+    }
+
+    public function save()
+    {
+        if (empty($this->dbname)) {
+            throw new \Exception('precisa declarar o banco de dados');
+        }
+
+        if (empty($this->table)) {
+            throw new \Exception('precisa declarar o nome da tabela');
+        }
+
+        if (empty($this->data)) {
+            throw new \Exception('os dados para inserir estão vazios');
+        }
+
+        $keys = array_keys($this->data);
+        $binders = array_map(function ($item) {
+            return ":{$item}";
+        }, $keys);
+
+        $this->query = "INSERT INTO {$this->dbname}.{$this->table}
+        (" . implode(", ", $keys) . ")
+        VALUES (" . implode(', ', $binders) . ")";
+
+        try {
+            $pdo = $this->connection()->prepare($this->query);
+            foreach ($this->data as $key => $value) {
+                $pdo->bindValue(":{$key}", $value);
+            }
+
+            if ($pdo->execute()) {
+                return true;
+            } else {
+                return false;
+            }
+        } catch (\PDOException $e) {
+            return $e->getMessage();
+        }
+    }
+
+    public function __set($name, $value)
+    {
+        $this->data[$name] = $value;
     }
 
     public function findById($id, $array = false)
@@ -141,7 +190,7 @@ class Conn
             $this->query = "SELECT * FROM {$this->dbname}.{$this->table} 
             {$this->inner_join} {$this->where} 
             GROUP BY {$this->group_by}";
-        }else {
+        } else {
             $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table} 
             {$this->inner_join} {$this->where} 
             GROUP BY {$this->group_by}";
@@ -168,7 +217,6 @@ class Conn
             } elseif (!$obj && $data == 'all') {
                 return $pdo->fetchAll(PDO::FETCH_ASSOC);
             }
-
         } catch (PDOException $e) {
             return $e->getMessage();
         }
@@ -328,7 +376,7 @@ class Conn
     public function connection()
     {
         try {
-            return new \PDO($this->dsn, $this->username, $this->password);
+            return new \PDO($this->dsn, $this->username, $this->password, $this->options);
         } catch (PDOException $e) {
             return $e->getMessage();
         }
