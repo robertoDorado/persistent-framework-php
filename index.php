@@ -126,8 +126,12 @@ class Conn
             $pdo = $this->connection()->prepare($this->query);
 
             if (!empty($this->values)) {
-                foreach ($this->values as $value) {
-                    $pdo->bindValue(":{$value}", $value);
+                foreach ($this->values as $key => $value) {
+                    if (!preg_match("/\d+/", $value)) {
+                        $pdo->bindValue($key + 1, $value, PDO::PARAM_STR);
+                    }else {
+                        $pdo->bindValue($key + 1, $value, PDO::PARAM_INT);
+                    }
                 }
             }
 
