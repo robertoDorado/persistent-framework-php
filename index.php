@@ -22,7 +22,7 @@ class Conn
 
     private $fields;
 
-    private $values;
+    private $values = [];
 
     private $where;
 
@@ -33,6 +33,12 @@ class Conn
     private $data;
 
     private $options;
+
+    private $keys = [];
+
+    private $in;
+
+    private $order_by;
 
     /**
      * Connection constructor
@@ -48,6 +54,104 @@ class Conn
             $this->dbname = $database[0];
         }
         $this->dbname = preg_replace("/dbname=/", '', $this->dbname);
+    }
+
+    public function orderBy(string $column, bool $reverse = false)
+    {
+        if (empty($this->dbname)) {
+            throw new \Exception('precisa declarar o banco de dados');
+        }
+
+        if (empty($this->table)) {
+            throw new \Exception('precisa declarar o nome da tabela');
+        }
+
+        if ($reverse) {
+            $this->order_by = "ORDER BY {$column} DESC";
+        }else {
+            $this->order_by = "ORDER BY {$column}";
+        }
+
+        $this->query = "SELECT {$this->fields} FROM 
+        {$this->dbname}.{$this->table} {$this->inner_join} {$this->where} {$this->in}
+        {$this->group_by} {$this->order_by}";
+        return $this;
+    }
+
+    public function in (string $column, array $values)
+    {
+        if (empty($this->dbname)) {
+            throw new \Exception('precisa declarar o banco de dados');
+        }
+
+        if (empty($this->table)) {
+            throw new \Exception('precisa declarar o nome da tabela');
+        }
+
+        if (!is_array($values)) {
+            throw new \Exception('values não é um array');
+        }
+
+        foreach ($values as $v) {
+            array_push($this->values, $v);
+        }
+
+        $values = array_map(function($item) {
+            return "?";
+        }, $values);
+
+        if (preg_match("/WHERE/", $this->where)) {
+            $this->in .= "AND {$column} IN (" . implode(', ', $values) . ")";
+        }else {
+            $this->in .= "WHERE {$column} IN (" . implode(', ', $values) . ")";
+        }
+
+        $this->query = "SELECT {$this->fields} FROM 
+        {$this->dbname}.{$this->table} {$this->inner_join} {$this->where} {$this->in}
+        {$this->group_by} {$this->order_by}";
+        return $this;
+    }
+
+    public function delete()
+    {
+        if (empty($this->dbname)) {
+            throw new \Exception('precisa declarar o banco de dados');
+        }
+
+        if (empty($this->table)) {
+            throw new \Exception('precisa declarar o nome da tabela');
+        }
+
+        try {
+            $pdo = $this->connection()->prepare($this->query);
+
+            if (!empty($this->values)) {
+                foreach ($this->values as $value) {
+                    $pdo->bindValue(":{$value}", $value);
+                }
+            }
+
+            $pdo->execute();
+
+            if ($pdo->rowCount() == 0) {
+                return [];
+            }
+        }catch(PDOException $e) {
+            return $e->getMessage();
+        }
+
+        $this->query = "DELETE FROM {$this->dbname}.{$this->table} {$this->where}";
+        try {
+            $pdo = $this->connection()->prepare($this->query);
+
+            if ($pdo->execute()) {
+                return true;
+            } else {
+                return false;
+            }
+        } catch (\PDOException $e) {
+            return $e->getMessage();
+        }
     }
 
     public function save()
@@ -164,7 +268,9 @@ class Conn
         ({$this->dbname}.{$table_join}.{$column_join} {$operator} {$this->dbname}.{$table}.{$column})
         {$this->inner_join}";
 
-        $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table} {$this->where} {$this->inner_join}";
+        $this->query = "SELECT {$this->fields} FROM 
+        {$this->dbname}.{$this->table} {$this->inner_join} {$this->where} {$this->in}
+        {$this->group_by} {$this->order_by}";
         return $this;
     }
 
@@ -182,7 +288,9 @@ class Conn
         ({$this->dbname}.{$table_join}.{$column_join} {$operator} {$this->dbname}.{$table}.{$column})
         {$this->inner_join}";
 
-        $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table} {$this->where} {$this->inner_join}";
+        $this->query = "SELECT {$this->fields} FROM 
+        {$this->dbname}.{$this->table} {$this->inner_join} {$this->where} {$this->in}
+        {$this->group_by} {$this->order_by}";
         return $this;
     }
 
@@ -200,11 +308,13 @@ class Conn
         ({$this->dbname}.{$table_join}.{$column_join} {$operator} {$this->dbname}.{$table}.{$column})
         {$this->inner_join}";
 
-        $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table} {$this->where} {$this->inner_join}";
+        $this->query = "SELECT {$this->fields} FROM 
+        {$this->dbname}.{$this->table} {$this->inner_join} {$this->where} {$this->in}
+        {$this->group_by} {$this->order_by}";
         return $this;
     }
 
-    public function groupBy(string $column_name, string $data = 'all', bool $obj = false, bool $debug = false)
+    public function groupBy(string $column_name)
     {
         if (empty($this->dbname)) {
             throw new \Exception('precisa declarar o banco de dados');
@@ -214,42 +324,19 @@ class Conn
             throw new \Exception('precisa declarar o nome da tabela');
         }
 
-        $this->group_by = "{$column_name}";
+        $this->group_by = "GROUP BY {$column_name}";
 
         if (empty($this->fields)) {
             $this->query = "SELECT * FROM {$this->dbname}.{$this->table} 
-            {$this->inner_join} {$this->where} 
-            GROUP BY {$this->group_by}";
+            {$this->inner_join} {$this->where} {$this->in}
+            {$this->group_by} {$this->order_by}";
         } else {
             $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table} 
-            {$this->inner_join} {$this->where} 
-            GROUP BY {$this->group_by}";
+            {$this->inner_join} {$this->where} {$this->in}
+            {$this->group_by} {$this->order_by}";
         }
 
-        if ($debug) {
-            return $this->query;
-        }
-
-        try {
-            $pdo = $this->connection()->prepare($this->query);
-            $pdo->execute();
-
-            if ($pdo->rowCount() == 0) {
-                throw new \Exception('não retornou resultados');
-            }
-
-            if ($obj && $data == 'first') {
-                return $pdo->fetch(PDO::FETCH_OBJ);
-            } elseif ($obj && $data == 'all') {
-                return $pdo->fetchAll(PDO::FETCH_OBJ);
-            } elseif (!$obj && $data == 'first') {
-                return $pdo->fetch(PDO::FETCH_ASSOC);
-            } elseif (!$obj && $data == 'all') {
-                return $pdo->fetchAll(PDO::FETCH_ASSOC);
-            }
-        } catch (PDOException $e) {
-            return $e->getMessage();
-        }
+        return $this;
     }
 
     public function count(string $alias = '', bool $obj = false, bool $debug = false)
@@ -262,7 +349,9 @@ class Conn
             throw new \Exception('precisa declarar o nome da tabela');
         }
 
-        $this->query = "SELECT COUNT({$this->dbname}.{$this->table}.id) {$alias} FROM {$this->dbname}.{$this->table} {$this->inner_join} {$this->where}";
+        $this->query = "SELECT COUNT({$this->dbname}.{$this->table}.id) {$alias} FROM
+        {$this->dbname}.{$this->table} {$this->inner_join} {$this->where} {$this->in}
+        {$this->group_by} {$this->order_by}";
 
         if ($debug) {
             return $this->query;
@@ -288,7 +377,7 @@ class Conn
 
     public function debug()
     {
-        return $this->query;
+        return ['query' => $this->query, 'params' => $this->values];
     }
 
     public function fetch($reference = 'all', $array = false)
@@ -309,15 +398,19 @@ class Conn
             $pdo = $this->connection()->prepare($this->query);
 
             if (!empty($this->values)) {
-                foreach ($this->values as $value) {
-                    $pdo->bindValue(":{$value}", $value);
+                foreach ($this->values as $key => $value) {
+                    if (!preg_match("/\d+/", $value)) {
+                        $pdo->bindValue($key + 1, $value, PDO::PARAM_STR);
+                    }else {
+                        $pdo->bindValue($key + 1, $value, PDO::PARAM_INT);
+                    }
                 }
             }
 
             $pdo->execute();
 
             if ($pdo->rowCount() == 0) {
-                throw new \Exception('a query não retornou nenhum resultado');
+                return [];
             }
 
             if ($reference == 'first' && !$array) {
@@ -346,32 +439,30 @@ class Conn
             throw new \Exception('precisa declarar o nome da tabela');
         }
 
-        $clausule = '';
+        $clause = '';
         $and = '';
 
-        if (count($data) >= 2) {
+        if (count($data) > 1) {
             $and .= "AND";
         }
 
-        foreach ($data as $key => $value) {
+        foreach($data as $value) {
 
-            if (preg_match("/^\d+$/", $value)) {
-                $value = preg_replace("/''/", '', $value);
-            } elseif (preg_match("/()/", $value)) {
-                $value = preg_replace("/''/", '', $value);
-            } else {
-                $value = "'{$value}'";
-            }
+            $key = array_shift($value);
+            $operator = array_shift($value);
+            $value = implode('', $value);
 
-            $this->values[] = $value;
-            $clausule .= "{$key} {$value} {$and} ";
+            array_push($this->keys, "?");
+            array_push($this->values, $value);
+
+            $clause .= "{$key} {$operator} ? {$and} ";
         }
 
-        $clausule = preg_replace("/AND\s$/", '', $clausule);
-        $this->where = "WHERE " . $clausule;
+        $clause = preg_replace("/AND\s$/", '', $clause);
+        $this->where = "WHERE " . $clause;
 
         $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table}
-        {$this->inner_join} {$this->where}";
+        {$this->inner_join} {$this->where} {$this->in} {$this->group_by} {$this->order_by}";
         return $this;
     }
 
