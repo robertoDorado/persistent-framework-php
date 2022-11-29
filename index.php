@@ -144,7 +144,8 @@ class Conn
             return $e->getMessage();
         }
 
-        $this->query = "DELETE FROM {$this->dbname}.{$this->table} {$this->where}";
+        $this->query = "DELETE FROM {$this->dbname}.{$this->table} 
+        {$this->inner_join} {$this->where} {$this->in} {$this->group_by} {$this->order_by}";
         try {
             $pdo = $this->connection()->prepare($this->query);
 
