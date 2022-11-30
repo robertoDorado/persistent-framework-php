@@ -233,7 +233,7 @@ class Conn
         $this->data[$name] = $value;
     }
 
-    public function findById($id, $array = false)
+    public function findById(string $id, bool $array = false)
     {
         if (empty($this->dbname)) {
             throw new \Exception('precisa declarar o banco de dados');
@@ -471,13 +471,13 @@ class Conn
         return $this;
     }
 
-    public function uses($table)
+    public function uses(string $table)
     {
         $this->table = $table;
         return $this;
     }
 
-    public function select($data = [])
+    public function select(array $data = [])
     {
         if (!is_array($data)) {
             throw new \Exception('obrigatório ser array o parametro');
