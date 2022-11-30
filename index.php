@@ -40,6 +40,10 @@ class Conn
 
     private $order_by;
 
+    public $id;
+
+    private $pdo;
+
     /**
      * Connection constructor
      */
@@ -112,7 +116,7 @@ class Conn
         return $this;
     }
 
-    public function delete()
+    public function delete(bool $debug = false)
     {
         if (empty($this->dbname)) {
             throw new \Exception('precisa declarar o banco de dados');
@@ -122,41 +126,36 @@ class Conn
             throw new \Exception('precisa declarar o nome da tabela');
         }
 
-        try {
-            $pdo = $this->connection()->prepare($this->query);
+        $this->query = "DELETE {$this->dbname}.{$this->table} FROM {$this->dbname}.{$this->table} 
+        {$this->inner_join} {$this->where} {$this->in}";
 
-            if (!empty($this->values)) {
-                foreach ($this->values as $key => $value) {
-                    if (!preg_match("/\d+/", $value)) {
-                        $pdo->bindValue($key + 1, $value, PDO::PARAM_STR);
-                    }else {
-                        $pdo->bindValue($key + 1, $value, PDO::PARAM_INT);
+        if ($debug) {
+            return $this->debug();
+        }else {
+            try {
+                $pdo = $this->connection()->prepare($this->query);
+    
+                if (!empty($this->values)) {
+                    foreach ($this->values as $key => $value) {
+                        if (!preg_match("/\d+/", $value)) {
+                            $pdo->bindValue($key + 1, $value, PDO::PARAM_STR);
+                        }else {
+                            $pdo->bindValue($key + 1, $value, PDO::PARAM_INT);
+                        }
                     }
                 }
+    
+                if ($pdo->execute()) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }catch(PDOException $e) {
+                return $e->getMessage();
             }
 
-            $pdo->execute();
-
-            if ($pdo->rowCount() == 0) {
-                return [];
-            }
-        }catch(PDOException $e) {
-            return $e->getMessage();
         }
 
-        $this->query = "DELETE FROM {$this->dbname}.{$this->table} 
-        {$this->inner_join} {$this->where} {$this->in} {$this->group_by} {$this->order_by}";
-        try {
-            $pdo = $this->connection()->prepare($this->query);
-
-            if ($pdo->execute()) {
-                return true;
-            } else {
-                return false;
-            }
-        } catch (\PDOException $e) {
-            return $e->getMessage();
-        }
     }
 
     public function save()
@@ -193,17 +192,17 @@ class Conn
 
             $this->query = "UPDATE {$this->dbname}.{$this->table} SET {$params} WHERE id = :id";
             try {
-                $pdo = $this->connection()->prepare($this->query);
+                $this->pdo = $this->connection();
+                $this->pdo->beginTransaction();
+                $stmt = $this->pdo->prepare($this->query);
                 foreach ($this->data as $key => $value) {
-                    $pdo->bindValue(":{$key}", $value);
+                    $stmt->bindValue(":{$key}", $value);
                 }
     
-                if ($pdo->execute()) {
-                    return true;
-                } else {
-                    return false;
-                }
+                $stmt->execute();
+                $this->pdo->commit();
             } catch (\PDOException $e) {
+                $this->connection()->rollBack();
                 return $e->getMessage();
             }
         }
@@ -213,17 +212,18 @@ class Conn
         VALUES (" . implode(', ', $binders) . ")";
 
         try {
-            $pdo = $this->connection()->prepare($this->query);
+            $this->pdo = $this->connection();
+            $this->pdo->beginTransaction();
+            $stmt = $this->pdo->prepare($this->query);
             foreach ($this->data as $key => $value) {
-                $pdo->bindValue(":{$key}", $value);
+                $stmt->bindValue(":{$key}", $value);
             }
 
-            if ($pdo->execute()) {
-                return true;
-            } else {
-                return false;
-            }
+            $stmt->execute();
+            $this->pdo->commit();
+            $this->id = $this->pdo->lastInsertId();
         } catch (\PDOException $e) {
+            $this->pdo->rollBack();
             return $e->getMessage();
         }
     }
@@ -243,7 +243,11 @@ class Conn
             throw new \Exception('precisa declarar o nome da tabela');
         }
 
-        $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table} WHERE id = :id";
+        if (empty($this->fields)) {
+            $this->query = "SELECT * FROM {$this->dbname}.{$this->table} WHERE id = :id";
+        }else {
+            $this->query = "SELECT {$this->fields} FROM {$this->dbname}.{$this->table} WHERE id = :id";
+        }
         $pdo = $this->connection()->prepare($this->query);
         $pdo->bindValue(":id", $id);
         $pdo->execute();
