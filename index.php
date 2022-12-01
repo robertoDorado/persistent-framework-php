@@ -40,7 +40,7 @@ class Conn
 
     private $order_by;
 
-    public $id;
+    public $id = [];
 
     private $pdo;
 
@@ -220,8 +220,8 @@ class Conn
             }
 
             $stmt->execute();
-            $this->pdo->commit();
             $this->id = $this->pdo->lastInsertId();
+            $this->pdo->commit();
         } catch (\PDOException $e) {
             $this->pdo->rollBack();
             return $e->getMessage();
