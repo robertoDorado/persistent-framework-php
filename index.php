@@ -42,8 +42,6 @@ class Conn
 
     public $id = [];
 
-    private $pdo;
-
     /**
      * Connection constructor
      */
@@ -192,15 +190,15 @@ class Conn
 
             $this->query = "UPDATE {$this->dbname}.{$this->table} SET {$params} WHERE id = :id";
             try {
-                $this->pdo = $this->connection();
-                $this->pdo->beginTransaction();
-                $stmt = $this->pdo->prepare($this->query);
+                $pdo = $this->connection();
+                $pdo->beginTransaction();
+                $stmt = $pdo->prepare($this->query);
                 foreach ($this->data as $key => $value) {
                     $stmt->bindValue(":{$key}", $value);
                 }
     
                 $stmt->execute();
-                $this->pdo->commit();
+                $pdo->commit();
             } catch (\PDOException $e) {
                 $this->connection()->rollBack();
                 return $e->getMessage();
@@ -212,18 +210,18 @@ class Conn
         VALUES (" . implode(', ', $binders) . ")";
 
         try {
-            $this->pdo = $this->connection();
-            $this->pdo->beginTransaction();
-            $stmt = $this->pdo->prepare($this->query);
+            $pdo = $this->connection();
+            $pdo->beginTransaction();
+            $stmt = $pdo->prepare($this->query);
             foreach ($this->data as $key => $value) {
                 $stmt->bindValue(":{$key}", $value);
             }
 
             $stmt->execute();
-            $this->id = $this->pdo->lastInsertId();
-            $this->pdo->commit();
+            $this->id = $pdo->lastInsertId();
+            $pdo->commit();
         } catch (\PDOException $e) {
-            $this->pdo->rollBack();
+            $pdo->rollBack();
             return $e->getMessage();
         }
     }
