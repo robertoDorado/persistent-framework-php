@@ -16,7 +16,7 @@ class Connection
 
     public static function pdo()
     {
-        (new Environment())->loadImmutable();
+        Environment::loadImmutable();
         self::$dsn = 'mysql:host=' . $_ENV['DB_HOST'] 
             . ';port=' . $_ENV['PORT'] . ';dbname=' . $_ENV['DB_NAME'] . '';
         try {

@@ -10,7 +10,7 @@ namespace Src;
  */
 class Environment
 {
-    public function loadImmutable()
+    public static function loadImmutable()
     {
         $envFile = dirname(__DIR__) . '/.env';
 
