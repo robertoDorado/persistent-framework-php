@@ -1,0 +1,17 @@
+{
+    "name": "rober/persistent-class-php",
+    "description": "Classe de persistência",
+    "autoload": {
+        "psr-4": {
+            "Src\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "robertoDorado",
+            "email": "robertodorado7@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {}
+}
