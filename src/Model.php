@@ -17,7 +17,7 @@ class Model
 
     private $query;
 
-    public $table;
+    private $table;
 
     private $fields;
 
@@ -73,7 +73,7 @@ class Model
         return $this;
     }
 
-    public function in (string $column, array $values)
+    public function in(string $column, array $values)
     {
         if (empty($this->dbName)) {
             throw new \Exception('precisa declarar o banco de dados');
@@ -314,6 +314,7 @@ class Model
         return $this;
     }
 
+    // testado
     public function groupBy(string $column_name)
     {
         if (empty($this->dbName)) {
@@ -339,6 +340,7 @@ class Model
         return $this;
     }
 
+    // testado
     public function count(string $alias = '', bool $obj = false, bool $debug = false)
     {
         if (empty($this->dbName)) {
@@ -375,11 +377,13 @@ class Model
         }
     }
 
+    // testado
     public function debug()
     {
         return ['query' => $this->query, 'params' => $this->values];
     }
 
+    // testado
     public function fetch($reference = 'all', $array = true)
     {
         if (empty($this->dbName)) {
@@ -442,6 +446,7 @@ class Model
         }
     }
 
+    // testado
     public function where(array $data)
     {
         if (empty($this->dbName)) {
@@ -479,12 +484,14 @@ class Model
         return $this;
     }
 
+    // testado
     public function uses(string $table)
     {
         $this->table = $table;
         return $this;
     }
 
+    // testado
     public function select(array $data = [])
     {
         if (!is_array($data)) {
